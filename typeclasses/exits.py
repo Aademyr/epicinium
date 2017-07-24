@@ -7,6 +7,7 @@ for allowing Characters to traverse the exit to its destination.
 
 """
 from evennia import DefaultExit
+from world.wild import WildRoomManager
 
 class Exit(DefaultExit):
     """
@@ -33,4 +34,44 @@ class Exit(DefaultExit):
                                         not be called if the attribute `err_traverse` is
                                         defined, in which case that will simply be echoed.
     """
-    pass
+    
+    def at_traverse(self, traversing_object, target_location):
+        """
+        This implements the actual traversal. The traverse lock has
+        already been checked (in the Exit command) at this point.
+
+        Args:
+            traversing_object (Object): Object traversing us.
+            target_location (Object): Where target is going.
+        
+        Special consideration is given to exits tagged with "wild".
+        These lead into the open world wildlands, which is rendered
+        as a map and dynamically allocated to conserve memory.
+
+        """
+        source_location = traversing_object.location
+        
+        if self.tags.get('wild'):
+            # If this exit leads into the wild we need the coordinates
+            # and we initiate spawning a wildlands room, map display, etc.
+            # Finally we move the traverser into the spawned room.
+            coords = self.tags.get('wild', return_tagobj=True).db_data.split()
+            coords = (int(coords[0]), int(coords[1]))
+            if not WildRoomManager().awake(coords):
+                destination = WildRoomManager().wakeup(coords, traversing_object)
+            
+            # Move object into spawned wild room
+            if traversing_object.move_to(destination):
+                self.at_after_traverse(traversing_object, source_location)
+                
+        elif traversing_object.move_to(target_location):
+            self.at_after_traverse(traversing_object, source_location)
+            
+        else:
+            if self.db.err_traverse:
+                # if exit has a better error message, let's use it.
+                self.caller.msg(self.db.err_traverse)
+            else:
+                # No shorthand error message. Call hook.
+                self.at_failed_traverse(traversing_object)
+

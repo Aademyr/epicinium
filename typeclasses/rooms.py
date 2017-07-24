@@ -49,10 +49,15 @@ class Room(DefaultRoom):
         string = "|y%s|n\n" % self.get_display_name(looker)
         desc = self.db.desc
         if desc:
-            if not self.tags.get('no-justify'):
-                string += '|m' + justify("%s" % desc, align='l') + '\n'
-            else:
+            if self.tags.get('no-justify'):
+                # This tag prevents justification of description text.
                 string += '|m' + "%s" % desc + '\n'
+            elif self.tags.get('art-room'):
+                # This room is meant to contain text art at a smaller font size.
+                # We define special CSS in the web client for this.
+                string += '|m' + '%s' % desc + '\n'
+            else:
+                string += '|m' + justify("%s" % desc, align='l') + '\n'
         if exits:
             string += "|bObvious Exits:\n"
             for ex in exits:
@@ -67,3 +72,10 @@ class Room(DefaultRoom):
             string += "\n".join(things)
         string += '|n'
         return string
+
+
+class WildRoom(Room):
+    '''
+    Class for specializing wild rooms.
+    '''
+    pass
